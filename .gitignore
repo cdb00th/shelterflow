@@ -1,0 +1,34 @@
+# Virtual environment
+.venv/
+
+# DuckDB database file
+*.duckdb
+*.duckdb.wal
+
+# Raw/processed data (don't commit CSVs to GitHub)
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.eggs/
+*.egg-info/
+
+# dbt
+dbt_shelterflow/target/
+dbt_shelterflow/logs/
+dbt_shelterflow/.user.yml
+
+# Great Expectations
+great_expectations/uncommitted/
+
+# Environment variables
+.env
+
+# OS files
+.DS_Store        # Mac
+Thumbs.db        # Windows
+
+# VS Code
+.vscode/
