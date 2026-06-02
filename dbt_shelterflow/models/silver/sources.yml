@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - bronze:
+    schema: main
+    tables:
+      - name: bronze_intakes
+      - name: bronze_outcomes
