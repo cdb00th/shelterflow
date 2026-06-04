@@ -1,7 +1,7 @@
 version: 2
 
 sources:
-  - bronze:
+  - name: bronze
     schema: main
     tables:
       - name: bronze_intakes
