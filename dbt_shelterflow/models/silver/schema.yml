@@ -2,6 +2,11 @@ version: 2
 
 models:
   - name: silver_intakes
+    tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 70000
+            max_value: 85000
     columns:
       - name: animal_id
         tests:
@@ -11,8 +16,24 @@ models:
           - accepted_values:
               arguments:
                 values: ['Stray', 'Owner Surrender', 'Public Assist', 'Wildlife', 'Euthanasia Request']
-  
+      - name: age_in_days
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+      - name: age_group
+        tests:
+          - dbt_expectations.expect_column_values_to_be_in_set:
+              arguments:
+                value_set: ['Puppy', 'Kitten', 'Young', 'Adult', 'Senior']    
+                row_condition: "age_group is not null"
+
   - name: silver_outcomes
+    tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 70000
+            max_value: 85000
     columns:
       - name: animal_id
         tests:
@@ -22,3 +43,14 @@ models:
           - accepted_values:
               arguments:
                 values: ['Adoption', 'Transfer', 'Return to Owner', 'Euthanasia', 'Died', 'Disposal', 'Rto-Adopt', 'Missing', 'Relocate']
+      - name: age_in_days
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+      - name: age_group
+        tests:
+          - dbt_expectations.expect_column_values_to_be_in_set:
+              arguments:
+                value_set: ['Puppy', 'Kitten', 'Young', 'Adult', 'Senior']    
+                row_condition: "age_group is not null"
