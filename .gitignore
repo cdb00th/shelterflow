@@ -16,6 +16,7 @@ __pycache__/
 *.egg-info/
 
 # dbt
+dbt_shelterflow/dbt_packages/
 dbt_shelterflow/target/
 dbt_shelterflow/logs/
 dbt_shelterflow/.user.yml
