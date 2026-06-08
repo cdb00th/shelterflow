@@ -1,6 +1,6 @@
 {{ config(materialized='table') }}
 
-SELECT 
+SELECT DISTINCT
     animal_id,
     animal_type,
     outcome_type,
