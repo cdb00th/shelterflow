@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: silver_intakes
+    columns:
+      - name: animal_id
+        tests:
+          - not_null
+      - name: intake_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Stray', 'Owner Surrender', 'Public Assist', 'Wildlife', 'Euthanasia Request']
+  
+  - name: silver_outcomes
+    columns:
+      - name: animal_id
+        tests:
+          - not_null
+      - name: outcome_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Adoption', 'Transfer', 'Return to Owner', 'Euthanasia', 'Died', 'Disposal', 'Rto-Adopt', 'Missing', 'Relocate']
