@@ -1,5 +1,3 @@
-{{ config(materialized='table') }}
-
 SELECT DISTINCT
     animal_id,
     animal_type,
