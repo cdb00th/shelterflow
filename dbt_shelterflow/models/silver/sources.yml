@@ -2,7 +2,12 @@ version: 2
 
 sources:
   - name: bronze
+    description: >
+      Raw Austin Animal Center data loaded as-is by bronze_ingest.py.
+      No cleaning applied at this layer.
     schema: main
     tables:
       - name: bronze_intakes
+        description: Raw intake events, one row per intake record.
       - name: bronze_outcomes
+        description: Raw outcome events, one row per outcome record.

@@ -2,13 +2,19 @@ version: 2
 
 models:
   - name: silver_intakes
+    description: >
+      Cleaned intake events, one row per intake. Standardizes breed
+      strings, normalizes dates, and derives age_group from age_in_days.
     tests:
       - dbt_expectations.expect_table_row_count_to_be_between:
           arguments:
             min_value: 70000
             max_value: 85000
     columns:
+      - name: breed_standardized
+        description: "{{ doc('breed_standardized') }}"
       - name: animal_id
+        description: "{{ doc('animal_id') }}"
         tests:
           - not_null
       - name: intake_type
@@ -17,11 +23,13 @@ models:
               arguments:
                 values: ['Stray', 'Owner Surrender', 'Public Assist', 'Wildlife', 'Euthanasia Request']
       - name: age_in_days
-        tests:
+        description: "{{ doc('age_in_days') }}"
+        tests: 
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
                 min_value: 0
       - name: age_group
+        description: "{{ doc('age_group') }}"
         tests:
           - dbt_expectations.expect_column_values_to_be_in_set:
               arguments:
@@ -29,26 +37,35 @@ models:
                 row_condition: "age_group is not null"
 
   - name: silver_outcomes
+    description: >
+      Cleaned outcome events, one row per outcome. Standardizes breed
+      strings, normalizes dates, and derives age_group from age_in_days.
     tests:
       - dbt_expectations.expect_table_row_count_to_be_between:
           arguments:
             min_value: 70000
             max_value: 85000
     columns:
+      - name: breed_standardized
+        description: "{{ doc('breed_standardized') }}"
       - name: animal_id
+        description: "{{ doc('animal_id') }}"
         tests:
           - not_null
       - name: outcome_type
+        description: "{{ doc('outcome_type') }}"
         tests:
           - accepted_values:
               arguments:
                 values: ['Adoption', 'Transfer', 'Return to Owner', 'Euthanasia', 'Died', 'Disposal', 'Rto-Adopt', 'Missing', 'Relocate']
       - name: age_in_days
+        description: "{{ doc('age_in_days') }}"
         tests:
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
                 min_value: 0
       - name: age_group
+        description: "{{ doc('age_group') }}"
         tests:
           - dbt_expectations.expect_column_values_to_be_in_set:
               arguments:
