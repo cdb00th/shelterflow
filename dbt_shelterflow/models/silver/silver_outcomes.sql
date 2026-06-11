@@ -1,3 +1,10 @@
+/*
+  Cleans `bronze_outcomes` data by:
+  - Standardizing breed names
+  - Creating age group buckets
+  - Normalizing date values
+ */
+
 SELECT DISTINCT
     animal_id,
     animal_type,
@@ -9,36 +16,32 @@ SELECT DISTINCT
     color, 
     breed,
 
-    -- Standardize breed names
     CASE
-        -- Cross-breeds
+        -- Standardize cross-breeds as mixes
         WHEN breed LIKE '%/%' THEN SPLIT_PART(breed, '/', 1) || ' Mix'
 
-        -- Standardize American Pit Bull Terrier to Pit Bull
         WHEN LOWER(breed) LIKE '%american pit bull terrier%' AND LOWER(breed) LIKE '%mix%' THEN 'Pit Bull Mix'
         WHEN LOWER(breed) LIKE '%american pit bull terrier%' THEN 'Pit Bull'
 
-        -- Standardize Queensland Heeler to Australian Cattle Dog
         WHEN LOWER(breed) LIKE '%queensland heeler%' AND LOWER(breed) LIKE '%mix%' THEN 'Australian Cattle Dog Mix'
         WHEN LOWER(breed) LIKE '%queensland heeler%' THEN 'Australian Cattle Dog'
 
-        -- Standardize Oriental Sh Mix to Oriental Shorthair Mix 
         WHEN LOWER(breed) LIKE '%oriental sh mix%' THEN 'Oriental Shorthair Mix'
 
         ELSE breed
     END AS breed_standardized,
 
-    -- Convert age_upon_outcome into age_in_days
     CASE
         WHEN LOWER(SPLIT_PART(age_upon_outcome, ' ', 2)) IN ('year', 'years') THEN CAST(SPLIT_PART(age_upon_outcome, ' ', 1) AS INTEGER) * 365
         WHEN LOWER(SPLIT_PART(age_upon_outcome, ' ', 2)) IN ('month', 'months') THEN CAST(SPLIT_PART(age_upon_outcome, ' ', 1) AS INTEGER) * 30
         WHEN LOWER(SPLIT_PART(age_upon_outcome, ' ', 2)) IN ('week', 'weeks') THEN CAST(SPLIT_PART(age_upon_outcome, ' ', 1) AS INTEGER) * 7
         WHEN LOWER(SPLIT_PART(age_upon_outcome, ' ', 2)) IN ('day', 'days') THEN CAST(SPLIT_PART(age_upon_outcome, ' ', 1) AS INTEGER)
+        
         ELSE NULL
     END AS age_in_days,
 
-    -- Create age_group buckets based on age_in_days value
     CASE
+        -- Specialized age_group values for baby dogs and cats
         WHEN animal_type = 'Dog' AND age_in_days < 365 THEN 'Puppy'
         WHEN animal_type = 'Cat' AND age_in_days < 365 THEN 'Kitten'
 
@@ -46,10 +49,10 @@ SELECT DISTINCT
         WHEN animal_type IN ('Dog', 'Cat') AND age_in_days < 2920 THEN 'Adult'
         WHEN animal_type IN ('Dog', 'Cat') AND age_in_days >= 2920 THEN 'Senior'
 
-        ELSE NULL
+        ELSE NULL 
     END AS age_group,
     
-    -- Normalize dates
+    -- Normalize datetimes to dates, as time is unneeded for gold layer analysis
     CAST(STRPTIME(datetime, '%Y-%m-%dT%H:%M:%S') AS DATE) AS outcome_date,
     CAST(STRPTIME(date_of_birth, '%Y-%m-%dT%H:%M:%S') AS DATE) AS date_of_birth
 FROM {{source('bronze', 'bronze_outcomes')}}
