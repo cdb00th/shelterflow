@@ -18,6 +18,9 @@ models:
         tests:
           - not_null
       - name: intake_type
+        description: >
+          How the animal's stay began (e.g. stray, owner surrender).
+          See the `accepted_values` test for the authoritative list of categories.
         tests:
           - accepted_values:
               arguments:
