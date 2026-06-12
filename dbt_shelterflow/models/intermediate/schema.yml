@@ -1,0 +1,39 @@
+version: 2 
+
+models:
+  - name: int_animal_stays
+    description: >
+      One row per completed shelter stay: each intake paired to its next
+      outcome on/after the intake date. Intakes with no later outcome are
+      dropped; same-date outcomes resolve nondeterministically.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - animal_id
+              - intake_date
+    columns:
+      - name: length_of_stay
+        description: Days from intake to the paired outcome (always >= 0).
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+      - name: animal_id
+        description: "{{ doc('animal_id') }}"
+        tests:
+          - not_null
+      - name: intake_date
+        description: The date the animal arrived at the shelter.
+        tests:
+          - not_null
+      - name: outcome_date
+        description: The date the animal left the shelter.
+        tests:
+          - not_null
+      - name: outcome_type
+        description: "{{ doc('outcome_type') }}"
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Adoption', 'Transfer', 'Return to Owner', 'Euthanasia', 'Died', 'Disposal', 'Rto-Adopt', 'Missing', 'Relocate']                         
