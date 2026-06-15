@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: gold_adoption_metrics
+    description: >
+      One row per (animal_type, breed_standardized) segment: For each,
+      adoption metrics (adoption_rate, avg_days_to_adoption) are calculated
+      based on shelter stays that ended in adoption. 
+      These metrics are calculated for dogs and cats only, as adoption is
+      the relevant lens for these specific animal types, and they are the only types
+      breed_standardized normalizes.
+      The outcome of "Rto-Adopt" (return to owner, followed by adoption) counts
+      as a non-adoption.
+      Breeds with fewer than 10 completed stays are dropped to keep rates from
+      being dominated by tiny-sample noise.
+    columns:
+      - name: animal_type
+        description: Dog or Cat
+      - name: breed_standardized
+        description: "{{ doc('breed_standardized') }}"
+      - name: total_stays
+        description: All completed stays in the segment (intakes with no recorded outcome are excluded upstream).
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+      - name: adoptions
+        description: Count of stays ending in adoption.
+      - name: adoption_rate
+        description: Share of completed stays in the segment that ended in adoption (Rto-Adopt excluded).
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: avg_days_to_adoption
+        description: Average length of stay for adopted animals only; NULL when a segment had no adoptions.
