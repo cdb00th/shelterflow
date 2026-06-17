@@ -23,7 +23,7 @@ models:
         tests:
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
-                min_value: 1
+                min_value: 10
       - name: adoptions
         description: Count of stays ending in adoption.
       - name: adoption_rate
