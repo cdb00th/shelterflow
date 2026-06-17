@@ -1,3 +1,32 @@
+{% docs __overview__ %}
+# ShelterFlow
+
+A dbt + DuckDB analytics project built on the Austin Animal Center public
+intake and outcome dataset (through 2018). It models the flow of animals
+through the shelter (arrivals, length of stay, and outcomes) and surfaces
+analytical metrics on adoption, long-stay animals, and capacity trends.
+
+## Architecture
+
+The project follows a medallion layout:
+
+- **bronze**: raw source data loaded as-is by `bronze_ingest.py`, no cleaning.
+- **silver**: cleaned, typed, standardized intake and outcome records.
+- **intermediate**: `int_animal_stays` pairs intakes to outcomes into a single
+  stay grain, handling repeat visits and same-day sequencing.
+- **gold**: analytics-ready models for adoption metrics, long-stay animals, and
+  monthly capacity trends.
+
+## Known limitations
+
+- Same-day intake/outcome sequencing is nondeterministic for a small number of
+  records (~12 of ~80k), where ordering within a single day cannot be resolved
+  from the source. Documented inline and in the README.
+- `cumulative_net_population` in `gold_capacity_trends` measures change since the
+  start of data collection, not true shelter headcount. The source has no
+  starting census.
+{% enddocs %}
+
 {% docs animal_id %}
 Identifier for an individual animal; not unique within this table, as an animal
 can appear in multiple rows. An animal with repeat shelter visits keeps one
@@ -11,7 +40,9 @@ unchanged.
 {% enddocs %}
 
 {% docs age_in_days %}
-Age at intake in days. 
+Age at intake, in days. Derived from `intake_date` relative to the animal's
+recorded birth date, so it reflects age at arrival, not current age or age at
+outcome.
 {% enddocs %}
 
 {% docs age_group %}
