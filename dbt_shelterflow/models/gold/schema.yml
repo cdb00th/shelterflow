@@ -78,17 +78,34 @@ models:
     columns:
       - name: month
         description: Calendar month, truncated to month start.
+        tests:
+          - unique
+          - not_null
       - name: intakes
         description: Count of intake events recorded in the month.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
       - name: outcomes
         description: Count of outcome events recorded in the month.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
       - name: net_flow
         description: >
           Net monthly population change, intakes minus outcomes. Positive means
           the shelter grew that month; negative means it shrank.
+        tests:
+          - not_null
       - name: cumulative_net_population
         description: >
           Running sum of net_flow ordered by month. Measures cumulative change
           since the start of data collection, NOT true shelter headcount; The
           source has no starting census, so read this as a relative trend, not a
           literal count.
+        tests:
+          - not_null
