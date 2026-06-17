@@ -24,11 +24,22 @@ Null for other animal types.
 {% enddocs %}
 
 {% docs outcome_type %}
-How the animal's stay ended (e.g. adoption, transfer, return to owner).
-See the `accepted_values` test for the authoritative list of categories.
+How the animal's stay ended (e.g. adoption, transfer, return to owner, euthanasia).
 {% enddocs %}
 
 {% docs austin_source %}
 Raw data from the Austin Animal Center public intake and outcome dataset.
 Loaded as-is by bronze_ingest.py; no cleaning is applied at the bronze layer.
+{% enddocs %}
+
+{% docs length_of_stay %}
+Days from intake to the paired outcome.
+{% enddocs %}
+
+{% docs intake_date %}
+The date the animal arrived at the shelter.
+{% enddocs %}
+
+{% docs outcome_date %}
+The date the animal left the shelter.
 {% enddocs %}

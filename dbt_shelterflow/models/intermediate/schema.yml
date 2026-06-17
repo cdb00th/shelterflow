@@ -14,7 +14,7 @@ models:
               - intake_date
     columns:
       - name: length_of_stay
-        description: Days from intake to the paired outcome (always >= 0).
+        description: "{{ doc('length_of_stay')}}"
         tests:
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
@@ -24,11 +24,11 @@ models:
         tests:
           - not_null
       - name: intake_date
-        description: The date the animal arrived at the shelter.
+        description: "{{ doc('intake_date') }}"
         tests:
           - not_null
       - name: outcome_date
-        description: The date the animal left the shelter.
+        description: "{{ doc('outcome_date') }}"
         tests:
           - not_null
       - name: outcome_type
