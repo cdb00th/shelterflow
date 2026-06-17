@@ -65,3 +65,30 @@ models:
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
                 min_value: 70
+
+  - name: gold_capacity_trends
+    description: >
+      Monthly shelter capacity trends: intake/outcome volume and net population
+      flow. Grain is one row per calendar month (month start). Reads from
+      silver_intakes/silver_outcomes directly rather than int_animal_stays;
+      Capacity reflects physical movement through the shelter, so every event is
+      counted independently rather than matched into stays. The month series is
+      gap-free (verified: distinct-month count equals the expected count across
+      the full date range), so the running total never steps across missing time.
+    columns:
+      - name: month
+        description: Calendar month, truncated to month start.
+      - name: intakes
+        description: Count of intake events recorded in the month.
+      - name: outcomes
+        description: Count of outcome events recorded in the month.
+      - name: net_flow
+        description: >
+          Net monthly population change, intakes minus outcomes. Positive means
+          the shelter grew that month; negative means it shrank.
+      - name: cumulative_net_population
+        description: >
+          Running sum of net_flow ordered by month. Measures cumulative change
+          since the start of data collection, NOT true shelter headcount; The
+          source has no starting census, so read this as a relative trend, not a
+          literal count.
