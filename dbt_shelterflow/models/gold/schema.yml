@@ -35,3 +35,33 @@ models:
                 max_value: 1
       - name: avg_days_to_adoption
         description: Average length of stay for adopted animals only; NULL when a segment had no adoptions.
+
+  - name: gold_long_stay_animals
+    description: >
+      One row per completed stay that met the long-stay threshold: A long-stay
+      is defined as being in the 95th percentile of the completed-stay length
+      (70 days) in this dataset (i.e. the longest ~5% of stays).
+      These are historical, not currently-in-shelter stays that ENDED after
+      70+ days. The dataset ends in 2018, so a point-in-time "still present"
+      view isn't meaningful.
+    columns:
+      - name: animal_id
+        description: "{{ doc('animal_id') }}"          
+      - name: animal_type
+        description: Dog or Cat                            
+      - name: breed_standardized
+        description: "{{ doc('breed_standardized') }}"  
+      - name: age_group
+        description: "{{ doc('age_group')}}"   
+      - name: intake_date
+        description: "{{ doc('intake_date') }}"
+      - name: outcome_date
+        description: "{{ doc('outcome_date') }}"                           
+      - name: outcome_type
+        description: "{{ doc('outcome_type') }}"     
+      - name: length_of_stay
+        description: "{{ doc('length_of_stay') }}"      
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 70
