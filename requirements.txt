@@ -9,3 +9,7 @@ pandas==3.0.2
 # Notebooks (EDA + layer validation)
 jupyterlab==4.5.7
 seaborn==0.13.2
+
+# Dashboard
+streamlit==1.58.0
+altair==6.2.1
