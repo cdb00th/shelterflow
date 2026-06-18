@@ -7,8 +7,8 @@ documented, analytics-ready tables for adoption, long-stay, and shelter-capacity
 analysis.
 
 This repository is the **MVP**: the data pipeline is complete from raw ingestion
-through the gold analytics layer, with tests and documentation throughout. A
-visual dashboard layer is the next milestone (see [Roadmap](#roadmap)).
+through the gold analytics layer, with tests and documentation throughout, and a
+Streamlit dashboard reads the gold models for interactive exploration.
 
 ## Why this project
 
@@ -27,6 +27,7 @@ hand-waved.
 | Warehouse / engine | DuckDB (file-based, `data/shelterflow.duckdb`) |
 | Adapter | dbt-duckdb 1.10.1 |
 | Testing packages | dbt_utils, dbt_expectations |
+| Dashboard | Streamlit, Altair |
 | Ingestion / EDA | Python (pandas, duckdb), Jupyter |
 
 Using DuckDB keeps the whole warehouse in a single local file, so the project
@@ -49,7 +50,7 @@ responsibility:
   repeat visitors and resolves a join fan-out that would otherwise let two
   same-day intakes both claim a single outcome.
 - **gold**: analytics-ready models the dashboard and any downstream consumer
-  read from.
+  read from. The Streamlit dashboard reads exclusively from this layer.
 
 ```
 bronze_intakes / bronze_outcomes
@@ -107,7 +108,8 @@ shelterflow/
 │   ├── eda.ipynb
 │   ├── silver_validation.ipynb
 │   └── intermediate_validation.ipynb
-├── dashboard/                # (planned visual layer)
+├── dashboard/
+│   └── app.py               # Streamlit app over the gold layer
 ├── docker/                   # (planned containerization)
 └── requirements.txt
 ```
@@ -153,6 +155,30 @@ resolves `ref()` automatically and handles the schema correctly:
 ```bash
 dbt show --inline "select * from {{ ref('gold_adoption_metrics') }} limit 20"
 ```
+
+## Dashboard
+
+Once the warehouse is built, launch the Streamlit dashboard from the repo root:
+
+```bash
+streamlit run dashboard/app.py
+```
+
+The app connects read-only to `data/shelterflow.duckdb` and reads exclusively
+from the gold layer, so it is a pure consumer of the modeled tables and never
+transforms data itself. It has three tabs, one per gold model:
+
+- **Adoption**: adoption rate by breed for dogs or cats, showing the most and
+  least adoptable breeds side by side above an adjustable minimum-stays floor.
+- **Long stays**: the distribution and detail of completed stays at or beyond
+  the long-stay threshold, filterable by animal type and outcome.
+- **Capacity**: monthly intake vs. outcome volume, net flow, and cumulative net
+  population over time.
+
+The connection is cached with `@st.cache_resource` and query results with
+`@st.cache_data`, so interacting with filters does not re-hit the warehouse on
+every rerun. If the gold tables are missing, the app stops with a message
+prompting you to build them first rather than raising an error.
 
 ## Testing
 
@@ -201,7 +227,7 @@ These are documented deliberately rather than silently smoothed over:
 
 ## Roadmap
 
-- **Visual dashboard layer** *(next milestone)*: an interactive front end over
-  the gold models for adoption rates, long-stay outliers, and capacity trends.
-  The `dashboard/` directory is scaffolded for this work.
 - **Containerization**: a `docker/` setup for one-command, reproducible runs.
+- **Same-day tiebreaker logic**: datetime-based disambiguation for the small
+  number of stays where intake/outcome ordering within a single day is currently
+  nondeterministic (see [Known limitations](#known-limitations)).
