@@ -35,8 +35,11 @@ animal_id across several intakes, outcomes, or stays.
 
 {% docs breed_standardized %}
 Breed name. For cats and dogs, raw breed strings are collapsed to canonical
-names; for other animal types, the original raw value is passed through
-unchanged.
+names: cross-breeds (slash-separated) are reduced to their primary breed and
+suffixed " Mix", and select aliases are unified (e.g. Queensland Heeler resolves
+to Australian Cattle Dog). "Black/Tan" is normalized to "Black-Tan" beforehand so
+the slash in this Coonhound's name is not misread as a cross-breed separator. 
+For other animal types, the original raw value is passed through unchanged.
 {% enddocs %}
 
 {% docs age_in_days %}
@@ -50,6 +53,11 @@ Life-stage bucket derived from `age_in_days`, for cats and dogs only.
 
 - `Kitten` applies only to cats; `Puppy` only to dogs.
 - Other life stages (`Young`, `Adult`, `Senior`) apply to both.
+
+Because `age_in_days` uses approximate unit conversions (a month as 30 days,
+a year as 365), boundary cases can shift by how the source recorded the age:
+an animal logged as "12 months" (360 days) and one logged as "1 year"
+(365 days) fall on opposite sides of the one-year cutoff.
 
 Null for other animal types.
 {% enddocs %}
