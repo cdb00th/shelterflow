@@ -5,6 +5,32 @@
   - Normalizing date values
  */
 
+WITH cleaned AS (
+    SELECT
+        animal_id,
+        animal_type,
+        outcome_type,
+        outcome_subtype,
+        sex_upon_outcome,
+        age_upon_outcome,
+        name,
+        color,
+        breed,
+        datetime,
+        date_of_birth,
+        REPLACE(breed, 'Black/Tan', 'Black-Tan') AS breed_cleaned,
+
+        CASE
+            WHEN LOWER(SPLIT_PART(age_upon_outcome, ' ', 2)) IN ('year', 'years') THEN CAST(SPLIT_PART(age_upon_outcome, ' ', 1) AS INTEGER) * 365
+            WHEN LOWER(SPLIT_PART(age_upon_outcome, ' ', 2)) IN ('month', 'months') THEN CAST(SPLIT_PART(age_upon_outcome, ' ', 1) AS INTEGER) * 30
+            WHEN LOWER(SPLIT_PART(age_upon_outcome, ' ', 2)) IN ('week', 'weeks') THEN CAST(SPLIT_PART(age_upon_outcome, ' ', 1) AS INTEGER) * 7
+            WHEN LOWER(SPLIT_PART(age_upon_outcome, ' ', 2)) IN ('day', 'days') THEN CAST(SPLIT_PART(age_upon_outcome, ' ', 1) AS INTEGER)
+            ELSE NULL
+        END AS age_in_days
+
+    FROM {{ source('bronze', 'bronze_outcomes') }}
+)
+
 SELECT DISTINCT
     animal_id,
     animal_type,
@@ -15,30 +41,23 @@ SELECT DISTINCT
     name,
     color, 
     breed,
+    breed_cleaned,
+    age_in_days,
 
     CASE
         -- Standardize cross-breeds as mixes
-        WHEN breed LIKE '%/%' THEN SPLIT_PART(breed, '/', 1) || ' Mix'
+        WHEN breed_cleaned LIKE '%/%' THEN SPLIT_PART(breed_cleaned, '/', 1) || ' Mix'
 
-        WHEN LOWER(breed) LIKE '%american pit bull terrier%' AND LOWER(breed) LIKE '%mix%' THEN 'Pit Bull Mix'
-        WHEN LOWER(breed) LIKE '%american pit bull terrier%' THEN 'Pit Bull'
+        WHEN LOWER(breed_cleaned) LIKE '%american pit bull terrier%' AND LOWER(breed_cleaned) LIKE '%mix%' THEN 'Pit Bull Mix'
+        WHEN LOWER(breed_cleaned) LIKE '%american pit bull terrier%' THEN 'Pit Bull'
 
-        WHEN LOWER(breed) LIKE '%queensland heeler%' AND LOWER(breed) LIKE '%mix%' THEN 'Australian Cattle Dog Mix'
-        WHEN LOWER(breed) LIKE '%queensland heeler%' THEN 'Australian Cattle Dog'
+        WHEN LOWER(breed_cleaned) LIKE '%queensland heeler%' AND LOWER(breed_cleaned) LIKE '%mix%' THEN 'Australian Cattle Dog Mix'
+        WHEN LOWER(breed_cleaned) LIKE '%queensland heeler%' THEN 'Australian Cattle Dog'
 
-        WHEN LOWER(breed) LIKE '%oriental sh mix%' THEN 'Oriental Shorthair Mix'
+        WHEN LOWER(breed_cleaned) LIKE '%oriental sh mix%' THEN 'Oriental Shorthair Mix'
 
-        ELSE breed
+        ELSE breed_cleaned
     END AS breed_standardized,
-
-    CASE
-        WHEN LOWER(SPLIT_PART(age_upon_outcome, ' ', 2)) IN ('year', 'years') THEN CAST(SPLIT_PART(age_upon_outcome, ' ', 1) AS INTEGER) * 365
-        WHEN LOWER(SPLIT_PART(age_upon_outcome, ' ', 2)) IN ('month', 'months') THEN CAST(SPLIT_PART(age_upon_outcome, ' ', 1) AS INTEGER) * 30
-        WHEN LOWER(SPLIT_PART(age_upon_outcome, ' ', 2)) IN ('week', 'weeks') THEN CAST(SPLIT_PART(age_upon_outcome, ' ', 1) AS INTEGER) * 7
-        WHEN LOWER(SPLIT_PART(age_upon_outcome, ' ', 2)) IN ('day', 'days') THEN CAST(SPLIT_PART(age_upon_outcome, ' ', 1) AS INTEGER)
-        
-        ELSE NULL
-    END AS age_in_days,
 
     CASE
         -- Specialized age_group values for baby dogs and cats
@@ -55,4 +74,4 @@ SELECT DISTINCT
     -- Normalize datetimes to dates, as time is unneeded for gold layer analysis
     CAST(STRPTIME(datetime, '%Y-%m-%dT%H:%M:%S') AS DATE) AS outcome_date,
     CAST(STRPTIME(date_of_birth, '%Y-%m-%dT%H:%M:%S') AS DATE) AS date_of_birth
-FROM {{source('bronze', 'bronze_outcomes')}}
+FROM cleaned
