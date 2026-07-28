@@ -77,17 +77,32 @@ with adoption_tab:
     require_table("gold_adoption_metrics")
     df = query("SELECT * FROM gold_adoption_metrics")
 
+    # Reliability floor: at below 50 completed stays, an adoption rate is too noisy to rank on
+    MIN_STAYS = 50
+
     st.subheader("Most and least adoptable breeds")
+    st.caption(f"Breeds with >={MIN_STAYS} completed stays, for stable rate estimates.")
 
     col1, col2 = st.columns(2)
     animal_type = col1.selectbox("Animal type", ["Dog", "Cat"])
-    min_stays = col2.slider("Minimum completed stays", 10, 500, 50, step=10)
 
     filtered = df[
-        (df["animal_type"] == animal_type) & (df["total_stays"] >= min_stays)
+        (df["animal_type"] == animal_type) & (df["total_stays"] >= MIN_STAYS)
     ].sort_values("adoption_rate", ascending=False)
 
-    n = min(8, len(filtered) // 2)
+    # Size slider differently for Dogs and Cats, as Cats have far fewer breeds with 50+ completed stays
+    max_per_group = len(filtered) // 2
+
+    if max_per_group < 4:
+        breeds_per_group = max_per_group
+        col2.caption(f"Only {max_per_group} breeds per group clear the floor.")
+    else:
+        slider_max = min(12, max_per_group)
+        breeds_per_group = col2.slider(
+            "Breeds to show (per group)", 3, slider_max, min(8, slider_max)
+        )    
+    
+    n = breeds_per_group
     if n == 0:
         extremes = filtered.copy()
         extremes["group"] = "Most adoptable" 
@@ -126,13 +141,14 @@ with adoption_tab:
     st.altair_chart(chart, width="stretch")
 
     st.dataframe(
-        filtered[
-            ["breed_standardized", "total_stays", "adoptions",
+        extremes[
+            ["breed_standardized", "group", "total_stays", "adoptions",
              "adoption_rate", "avg_days_to_adoption"]
         ],
         width="stretch",
         hide_index=True,
         column_config={
+            "group": st.column_config.TextColumn("Group"),
             "adoption_rate": st.column_config.NumberColumn(
                 "Adoption rate", format="percent"
             ),
@@ -165,7 +181,7 @@ with long_stay_tab:
 
     counts, edges = np.histogram(filtered["length_of_stay"], bins=20)
     hist = pd.DataFrame({
-        "stay_days": edges[:-1].round().astype(int),  # left edge of each bin
+        "stay_days": edges[:-1].round().astype(int), 
         "animals": counts,
     })
     st.bar_chart(
@@ -248,14 +264,14 @@ with capacity_tab:
     st.altair_chart(net, width="stretch")
     st.caption("Net flow (intakes − outcomes). Positive = the shelter grew that month.")  
 
-    # Cumulative net population
+    # Cumulative net change
     cumulative_hover = alt.selection_point(
         on="mouseover", nearest=True, fields=["month"], empty=False
     )
 
     cumulative_line = alt.Chart(df).mark_line().encode(
         x=alt.X("month:T", title=None),
-        y=alt.Y("cumulative_net_population:Q", title="Cumulative net population"),
+        y=alt.Y("cumulative_net_change:Q", title="Cumulative net change"),
     )
 
     cumulative_hover_layer = (
@@ -265,7 +281,7 @@ with capacity_tab:
             x="month:T",
             tooltip=[
                 alt.Tooltip("month:T", title="Month", format="%b %Y"),
-                alt.Tooltip("cumulative_net_population:Q", title="Cumulative"),
+                alt.Tooltip("cumulative_net_change:Q", title="Cumulative"),
             ],
         )
         .add_params(cumulative_hover)
@@ -279,6 +295,6 @@ with capacity_tab:
 
     st.altair_chart(cumulative, width="stretch")
     st.caption(
-        "Cumulative net population. NOTE: this is change since data collection "
+        "Cumulative net change. NOTE: this is change since data collection "
         "began, not a true headcount, as the source has no starting census."
     )

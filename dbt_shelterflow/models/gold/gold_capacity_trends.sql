@@ -4,7 +4,7 @@
     capacity is about physical movement through the shelter, so every intake and 
     outcome event is counted independently. Matching events into stays (and 
     dropping unmatched ones) would undercount true throughput.
-  - cumulative_net_population measures change since the start of data
+  - cumulative_net_change measures change since the start of data
     collection, NOT the shelter's true headcount; The source has no starting
     census, so treat the absolute value as relative, not literal.
   - The FULL OUTER JOIN means a month appears only if it had at least
@@ -45,6 +45,6 @@ SELECT
     intakes,
     outcomes,
     intakes - outcomes AS net_flow,
-    SUM(intakes - outcomes) OVER (ORDER BY month) AS cumulative_net_population
+    SUM(intakes - outcomes) OVER (ORDER BY month) AS cumulative_net_change
 FROM combined
 ORDER BY month

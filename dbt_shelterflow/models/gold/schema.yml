@@ -103,7 +103,7 @@ models:
           the shelter grew that month; negative means it shrank.
         tests:
           - not_null
-      - name: cumulative_net_population
+      - name: cumulative_net_change
         description: >
           Running sum of net_flow ordered by month. Measures cumulative change
           since the start of data collection, NOT true shelter headcount; The
