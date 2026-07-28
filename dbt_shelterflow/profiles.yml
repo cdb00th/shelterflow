@@ -1,0 +1,7 @@
+dbt_shelterflow:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "../data/shelterflow.duckdb"
+      schema: main
