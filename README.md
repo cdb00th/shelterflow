@@ -1,21 +1,22 @@
 # ShelterFlow
 
 An analytics engineering project that models the flow of animals through the
-Austin Animal Center, arrivals, length of stay, and outcomes, using a dbt +
+Austin Animal Center — arrivals, length of stay, and outcomes — using a dbt +
 DuckDB medallion pipeline. It turns two raw, messy public CSVs into tested,
 documented, analytics-ready tables for adoption, long-stay, and shelter-capacity
 analysis.
 
 This repository is the **MVP**: the data pipeline is complete from raw ingestion
-through the gold analytics layer, with tests and documentation throughout, and a
-Streamlit dashboard reads the gold models for interactive exploration.
+through the gold analytics layer, with tests and documentation throughout, a
+Streamlit dashboard reading the gold models for interactive exploration, and CI
+that builds and tests the full DAG on every push.
 
 ## Why this project
 
 Animal shelters generate exactly the kind of operational event data that rewards
 careful modeling: the same animal can appear many times, "intake" and "outcome"
 are separate event streams that have to be matched into stays, and naive joins
-silently fan out. ShelterFlow treats those problems as the point, every
+silently fan out. ShelterFlow treats those problems as the point; every
 non-obvious modeling decision is documented in-code and tested rather than
 hand-waved.
 
@@ -27,6 +28,7 @@ hand-waved.
 | Warehouse / engine | DuckDB (file-based, `data/shelterflow.duckdb`) |
 | Adapter | dbt-duckdb 1.10.1 |
 | Testing packages | dbt_utils, dbt_expectations |
+| CI | GitHub Actions |
 | Dashboard | Streamlit, Altair |
 | Ingestion / EDA | Python (pandas, duckdb), Jupyter |
 
@@ -78,7 +80,7 @@ gold_capacity_trends
   for analysis of which animals, breeds, and types trend toward extended shelter
   time.
 - **`gold_capacity_trends`**: monthly intake/outcome volume, net flow, and a
-  cumulative net-population running total. Reads the silver layer directly rather
+  cumulative net-change running total. Reads the silver layer directly rather
   than `int_animal_stays`, because capacity is about physical movement through
   the building, so every event is counted independently rather than matched into
   stays.
@@ -87,18 +89,26 @@ gold_capacity_trends
 
 [Austin Animal Center Shelter Intakes and Outcomes](https://www.kaggle.com/datasets/aaronschlegel/austin-animal-center-shelter-intakes-and-outcomes)
 (public, via Kaggle). Two CSVs of roughly 80,000 rows each, covering intakes and
-outcomes through 2018. Dogs and cats make up the large majority of records;
-adoption, transfer, and return-to-owner are the dominant outcomes.
+outcomes through 2018 across 72,365 distinct animals. Dogs and cats make up the
+large majority of records; adoption, transfer, and return-to-owner are the
+dominant outcomes.
 
 ## Project structure
 
 ```
 shelterflow/
+├── .github/
+│   └── workflows/
+│       └── ci.yml            # build + test the full DAG on every push
 ├── data/                     # DuckDB file + raw CSVs (gitignored, not committed)
 │   ├── bronze/               # aac_intakes.csv, aac_outcomes.csv go here
 │   └── shelterflow.duckdb
 ├── pipelines/
 │   └── bronze_ingest.py      # raw CSV → DuckDB bronze tables
+├── scripts/
+│   └── build_fixture.py      # generates the sampled CI fixture
+├── tests/
+│   └── fixtures/             # sampled CSVs used by CI (committed)
 ├── dbt_shelterflow/          # the dbt project
 │   └── models/
 │       ├── silver/
@@ -109,7 +119,7 @@ shelterflow/
 │   ├── silver_validation.ipynb
 │   └── intermediate_validation.ipynb
 ├── dashboard/
-│   └── app.py               # Streamlit app over the gold layer
+│   └── app.py                # Streamlit app over the gold layer
 ├── docker/                   # (planned containerization)
 └── requirements.txt
 ```
@@ -135,8 +145,13 @@ shelterflow/
 Load the raw CSVs into the DuckDB bronze tables:
 
 ```bash
-python pipelines/bronze_ingest.py
+python pipelines/bronze_ingest.py --source full
 ```
+
+`--source` is required and selects which CSVs to load: `full` reads the complete
+dataset from `data/bronze/`, and `fixture` reads the sampled fixture from
+`tests/fixtures/`. There is no default, so every invocation is explicit about
+which data it built.
 
 Then build the dbt models (silver → intermediate → gold):
 
@@ -149,11 +164,42 @@ dbt build       # run + test every model in dependency order
 `dbt build` runs models and their tests together; use `dbt run` and `dbt test`
 separately if you want to isolate the two.
 
-For ad-hoc querying, `dbt show --inline` is preferred over the DuckDB CLI, it
-resolves `ref()` automatically and handles the schema correctly:
+For ad-hoc querying, `dbt show --inline` is preferred over the DuckDB CLI, since
+it resolves `ref()` automatically and handles the schema correctly:
 
 ```bash
 dbt show --inline "select * from {{ ref('gold_adoption_metrics') }} limit 20"
+```
+
+## Continuous integration
+
+[![CI](https://github.com/cdb00th/shelterflow/actions/workflows/ci.yml/badge.svg)](https://github.com/cdb00th/shelterflow/actions/workflows/ci.yml)
+
+Every push and pull request to `main` runs the pipeline end to end on GitHub
+Actions: install dependencies, load a fixture into DuckDB, and `dbt build` the
+entire DAG with its tests.
+
+CI runs against a committed fixture in `tests/fixtures/` rather than the full
+dataset, which is not in the repo. Keeping the build hermetic means a red badge
+means the code broke, not that an upstream host was slow.
+
+The fixture covers 3,000 animals and is generated by `scripts/build_fixture.py`.
+All 98 animals with a `Black/Tan` breed are force-included, since at 0.14% of the
+population a uniform draw would likely miss them entirely and leave the breed-
+standardization path untested. The rest is a seeded reservoir draw. Every intake
+and outcome row for a sampled animal is pulled, so stay histories arrive intact
+for `int_animal_stays` to pair.
+
+The fixture is deliberately **not** representative, and statistics computed from
+it will not match the full dataset. The row-count tests that assert full-dataset
+volume are tagged `full_data` and excluded in CI rather than widened to
+accommodate the sample: a bound loose enough to pass on 3,000 rows and 80,000
+rows is not checking anything.
+
+Regenerate the fixture (requires a full local build first):
+
+```bash
+python scripts/build_fixture.py
 ```
 
 ## Dashboard
@@ -169,11 +215,13 @@ from the gold layer, so it is a pure consumer of the modeled tables and never
 transforms data itself. It has three tabs, one per gold model:
 
 - **Adoption**: adoption rate by breed for dogs or cats, showing the most and
-  least adoptable breeds side by side above an adjustable minimum-stays floor.
+  least adoptable breeds side by side. Breeds are held to a fixed reliability
+  floor of 50 completed stays, with an adjustable control for how many to show
+  at each end.
 - **Long stays**: the distribution and detail of completed stays at or beyond
   the long-stay threshold, filterable by animal type and outcome.
 - **Capacity**: monthly intake vs. outcome volume, net flow, and cumulative net
-  population over time.
+  change over time.
 
 The connection is cached with `@st.cache_resource` and query results with
 `@st.cache_data`, so interacting with filters does not re-hit the warehouse on
@@ -188,8 +236,10 @@ Data quality is enforced in dbt rather than checked by hand:
   `unique_combination_of_columns` (via dbt_utils) guard grain and domain
   constraints, including the stay grain of `int_animal_stays`.
 - **Value-range tests**: dbt_expectations checks bound things like
-  non-negative `length_of_stay`, `adoption_rate` in `[0, 1]`, and silver row
-  counts within an expected band.
+  non-negative `length_of_stay` and `adoption_rate` in `[0, 1]`.
+- **Load-completeness tests**: silver row counts are asserted to fall within an
+  expected band. These check that the full dataset loaded without truncation, so
+  they are tagged `full_data` and excluded when CI runs against the fixture.
 - **A custom singular test**: `assert_capacity_trends_no_month_gaps` fails if
   the monthly capacity series has any gaps, which would let the running total
   step across missing time.
@@ -211,6 +261,14 @@ The `notebooks/` directory holds the exploratory analysis that justified the
 cleaning rules (breed standardization, age parsing) and the validation that
 confirmed each layer behaves as intended.
 
+## Notes on the data
+
+- **December adoptions run above adjacent months in every year of the data.**
+  Measured against the mean of the neighboring November and January, December
+  adoptions are higher in all five year-pairs, ranging from +4% to +28%. The
+  effect is strongest in 2013–14 and diminishes in later years, where December
+  adoptions take a larger share of outcomes without adding overall volume.
+
 ## Known limitations
 
 These are documented deliberately rather than silently smoothed over:
@@ -218,10 +276,11 @@ These are documented deliberately rather than silently smoothed over:
 - **Same-day sequencing is nondeterministic** for a small number of stays
   (~12 of ~80k), where intake/outcome ordering within a single day can't be
   resolved from the source data.
-- **`cumulative_net_population` is relative, not absolute.** It measures change
-  since the start of data collection, not the shelter's true headcount, the
-  source has no starting census, so read the value as a trend rather than a
-  literal count.
+- **`cumulative_net_change` is relative, not absolute.** The running sum starts
+  at zero in the first month of the extract, which assumes an empty shelter at
+  that point. Animals already in residence produce outcomes with no matching
+  intake, so the series measures net change since data collection began rather
+  than the shelter's headcount. Read it as a trend, not a count.
 - **`breed_standardized` only normalizes cats and dogs.** For other animal
   types the original raw breed value passes through unchanged.
 
