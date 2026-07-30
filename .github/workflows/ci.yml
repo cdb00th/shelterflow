@@ -30,8 +30,10 @@ jobs:
       - name: dbt deps
         working-directory: dbt_shelterflow
         run: dbt deps
+      - name: Load fixture data
+        run: python pipelines/bronze_ingest.py --source fixture  
       - name: dbt build
         working-directory: dbt_shelterflow
-        run: dbt build
+        run: dbt build --exclude tag:full_data
 
 
