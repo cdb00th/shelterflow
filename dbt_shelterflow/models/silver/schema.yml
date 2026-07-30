@@ -10,6 +10,8 @@ models:
           arguments:
             min_value: 70000
             max_value: 85000
+            config:
+              tags: ['full_data']
     columns:
       - name: breed_standardized
         description: "{{ doc('breed_standardized') }}"
@@ -48,6 +50,8 @@ models:
           arguments:
             min_value: 70000
             max_value: 85000
+            config:
+              tags: ['full_data']
     columns:
       - name: breed_standardized
         description: "{{ doc('breed_standardized') }}"
