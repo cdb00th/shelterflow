@@ -27,5 +27,11 @@ jobs:
           cache-dependency-path: requirements.txt
       - name: Install dependencies
         run: pip install -r requirements.txt
-     
+      - name: dbt deps
+        working-directory: dbt_shelterflow
+        run: dbt deps
+      - name: dbt build
+        working-directory: dbt_shelterflow
+        run: dbt build
+
 
