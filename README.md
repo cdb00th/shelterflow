@@ -120,7 +120,6 @@ shelterflow/
 │   └── intermediate_validation.ipynb
 ├── dashboard/
 │   └── app.py                # Streamlit app over the gold layer
-├── docker/                   # (planned containerization)
 └── requirements.txt
 ```
 
@@ -286,7 +285,6 @@ These are documented deliberately rather than silently smoothed over:
 
 ## Roadmap
 
-- **Containerization**: a `docker/` setup for one-command, reproducible runs.
 - **Same-day tiebreaker logic**: datetime-based disambiguation for the small
   number of stays where intake/outcome ordering within a single day is currently
   nondeterministic (see [Known limitations](#known-limitations)).
