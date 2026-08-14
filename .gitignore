@@ -22,9 +22,6 @@ dbt_shelterflow/logs/
 dbt_shelterflow/.user.yml
 logs/
 
-# Great Expectations
-great_expectations/uncommitted/
-
 # Environment variables
 .env
 
