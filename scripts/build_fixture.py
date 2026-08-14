@@ -6,6 +6,10 @@ CI exercises the breed-standardization path. Do not compute statistics
 from it.
 
 Run locally, commit the output CSVs. Requires a full local build.
+
+Idempotent: re-running replaces the tables. Both --source values write to the
+same database, so loading the fixture locally overwrites a full build.
+Re-run with --source full to restore.
 """
 from pathlib import Path
 import duckdb
@@ -59,7 +63,7 @@ def export(con, ids: list[str]) -> None:
 
 def verify(con, ids: list[str]) -> None:
     """Assert the fixture is the right size, covers Black/Tan, and has no month gaps."""
-    assert len(ids) == TARGET_ANIMALS, f"got {len(ids)} ids, want {TARGET_ANIMALS}"
+    assert len(set(ids)) == TARGET_ANIMALS, f"got {len(set(ids))} distinct ids, want {TARGET_ANIMALS}"
 
     missing = con.execute(f"""
         SELECT count(*) FROM (
