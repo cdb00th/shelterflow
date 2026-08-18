@@ -36,7 +36,7 @@ models:
     intermediate:
       +materialized: view
     gold:
-      +materialized: table
+      +materialized: "{{ 'external' if target.name == 'prod' else 'table' }}"
 
 flags:
   send_anonymous_usage_stats: false
