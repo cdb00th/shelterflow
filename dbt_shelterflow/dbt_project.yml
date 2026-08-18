@@ -37,4 +37,7 @@ models:
       +materialized: view
     gold:
       +materialized: table
+
+flags:
+  send_anonymous_usage_stats: false
    
