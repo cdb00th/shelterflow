@@ -6,10 +6,6 @@ CI exercises the breed-standardization path. Do not compute statistics
 from it.
 
 Run locally, commit the output CSVs. Requires a full local build.
-
-Idempotent: re-running replaces the tables. Both --source values write to the
-same database, so loading the fixture locally overwrites a full build.
-Re-run with --source full to restore.
 """
 from pathlib import Path
 import duckdb

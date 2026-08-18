@@ -2,7 +2,9 @@
 
 Reads intakes.csv and outcomes.csv from data/ and writes bronze_intakes
 and bronze_outcomes. No cleaning as this is the immutable raw layer.
-Idempotent: re-running replaces the tables.
+Idempotent: re-running replaces the tables. Both --source values write to the
+same database, so loading the fixture locally overwrites a full build.
+Re-run with --source full to restore.
 
 "--source full", located in data/bronze/, refers to the complete dataset.
 "--source fixture", located tests/fixtures/, refers to the sampled fixture used by CI.
