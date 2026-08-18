@@ -18,7 +18,13 @@ WITH cleaned AS (
         breed,
         datetime,
         date_of_birth,
-        REPLACE(breed, 'Black/Tan', 'Black-Tan') AS breed_cleaned,
+        REPLACE(
+            REPLACE(
+                REPLACE(breed, 'Black/Tan', 'Black-Tan'),
+                'American Pit Bull Terrier', 'Pit Bull'
+            ),
+            'Queensland Heeler', 'Australian Cattle Dog'
+        ) AS breed_cleaned,
 
         CASE
             WHEN LOWER(SPLIT_PART(age_upon_outcome, ' ', 2)) IN ('year', 'years') THEN CAST(SPLIT_PART(age_upon_outcome, ' ', 1) AS INTEGER) * 365
@@ -47,12 +53,6 @@ SELECT DISTINCT
     CASE
         -- Standardize cross-breeds as mixes
         WHEN breed_cleaned LIKE '%/%' THEN SPLIT_PART(breed_cleaned, '/', 1) || ' Mix'
-
-        WHEN LOWER(breed_cleaned) LIKE '%american pit bull terrier%' AND LOWER(breed_cleaned) LIKE '%mix%' THEN 'Pit Bull Mix'
-        WHEN LOWER(breed_cleaned) LIKE '%american pit bull terrier%' THEN 'Pit Bull'
-
-        WHEN LOWER(breed_cleaned) LIKE '%queensland heeler%' AND LOWER(breed_cleaned) LIKE '%mix%' THEN 'Australian Cattle Dog Mix'
-        WHEN LOWER(breed_cleaned) LIKE '%queensland heeler%' THEN 'Australian Cattle Dog'
 
         WHEN LOWER(breed_cleaned) LIKE '%oriental sh mix%' THEN 'Oriental Shorthair Mix'
 
