@@ -1,4 +1,4 @@
-"""Load raw Austin Animal Center CSVs into DuckDB bronze tables.
+"""Load raw Austin Animal Center data into DuckDB bronze tables.
 
 Reads intakes.csv and outcomes.csv from data/ and writes bronze_intakes
 and bronze_outcomes. No cleaning as this is the immutable raw layer.
@@ -10,6 +10,7 @@ Re-run with --source full to restore.
 "--source fixture", located tests/fixtures/, refers to the sampled fixture used by CI.
 """
 import argparse
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -25,19 +26,31 @@ SOURCE_DIRS = {
     "fixture": PROJECT_ROOT / "tests" / "fixtures",
 }
 
-parser = argparse.ArgumentParser(description="Load AAC CSVs into DuckDB bronze tables.")
-parser.add_argument("--source", choices=list(SOURCE_DIRS), required=True)
+parser = argparse.ArgumentParser(description="Load AAC raw data into DuckDB bronze tables.")
+parser.add_argument("--source", choices=[*SOURCE_DIRS, "s3"], required=True)
 args = parser.parse_args()
-source_dir = SOURCE_DIRS[args.source]
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 con = duckdb.connect(str(DATA_DIR / "shelterflow.duckdb"))
 
-intakes = pd.read_csv(source_dir / "aac_intakes.csv", dtype=str)
-outcomes = pd.read_csv(source_dir / "aac_outcomes.csv", dtype=str)
+if args.source == "s3":
+    bucket = os.environ["SHELTERFLOW_BUCKET"]
+
+    con.execute("INSTALL httpfs; LOAD httpfs;")
+    con.execute("CREATE SECRET (TYPE s3, PROVIDER credential_chain, REGION 'us-east-1')")
+
+    intakes_source = f"read_parquet('s3://{bucket}/bronze/aac_intakes.parquet')"
+    outcomes_source = f"read_parquet('s3://{bucket}/bronze/aac_outcomes.parquet')"
+else:
+    source_dir = SOURCE_DIRS[args.source]
+
+    intakes = pd.read_csv(source_dir / "aac_intakes.csv", dtype=str)
+    outcomes = pd.read_csv(source_dir / "aac_outcomes.csv", dtype=str)
+    intakes_source = "intakes"
+    outcomes_source = "outcomes"
 
 # OR REPLACE so re-running the script reloads cleanly instead of erroring
-con.execute("CREATE OR REPLACE TABLE bronze_intakes AS SELECT * FROM intakes")
-con.execute("CREATE OR REPLACE TABLE bronze_outcomes AS SELECT * FROM outcomes")
+con.execute(f"CREATE OR REPLACE TABLE bronze_intakes AS SELECT * FROM {intakes_source}")
+con.execute(f"CREATE OR REPLACE TABLE bronze_outcomes AS SELECT * FROM {outcomes_source}")
 
 con.close()
