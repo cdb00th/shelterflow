@@ -1,0 +1,23 @@
+name: ShelterFlow Prod Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/s3-external-materialization]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write      
+      contents: read
+    env:
+      SHELTERFLOW_BUCKET: ${{ vars.SHELTERFLOW_BUCKET }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+    
