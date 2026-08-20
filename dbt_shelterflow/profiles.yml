@@ -5,3 +5,14 @@ dbt_shelterflow:
       type: duckdb
       path: "../data/shelterflow.duckdb"
       schema: main
+
+    prod:
+      type: duckdb
+      path: "../data/shelterflow.duckdb"
+      schema: main
+      extensions: [httpfs]
+      secrets:
+        - type: s3
+          provider: credential_chain
+          region: us-east-1
+      external_root: "s3://{{ env_var('SHELTERFLOW_BUCKET', '') }}/gold"
