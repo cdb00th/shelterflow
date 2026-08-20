@@ -1,15 +1,18 @@
 # ShelterFlow
 
 An analytics engineering project that models the flow of animals through the
-Austin Animal Center — arrivals, length of stay, and outcomes — using a dbt +
-DuckDB medallion pipeline. It turns two raw, messy public CSVs into tested,
+Austin Animal Center (arrivals, length of stay, and outcomes) using a dbt +
+DuckDB + S3 medallion pipeline. It turns two raw, messy public CSVs into tested,
 documented, analytics-ready tables for adoption, long-stay, and shelter-capacity
 analysis.
 
-This repository is the **MVP**: the data pipeline is complete from raw ingestion
-through the gold analytics layer, with tests and documentation throughout, a
-Streamlit dashboard reading the gold models for interactive exploration, and CI
-that builds and tests the full DAG on every push.
+This repository is complete end to end, and runs two ways. The `dev` target
+builds entirely from local CSVs into a single DuckDB file, so the project
+clones and runs with no cloud account and no credentials. The `prod` target
+reads bronze from S3 and publishes the gold models back as parquet, driven by
+a GitHub Actions workflow that assumes an AWS role through OIDC rather than
+storing access keys. Tests, documentation, and a Streamlit dashboard over the
+gold layer are in place throughout.
 
 ## Why this project
 
@@ -31,9 +34,10 @@ hand-waved.
 | CI | GitHub Actions |
 | Dashboard | Streamlit, Altair |
 | Ingestion / EDA | Python (pandas, duckdb), Jupyter |
+| Object storage | AWS S3 (via DuckDB httpfs) |
 
-Using DuckDB keeps the whole warehouse in a single local file, so the project
-clones and runs end-to-end with no cloud credentials or external database.
+Using DuckDB keeps the whole warehouse in a single file, so the project clones
+and runs with no external database to provision.
 
 ## Architecture
 
@@ -41,8 +45,8 @@ ShelterFlow follows a medallion layout. Each layer has a single, well-scoped
 responsibility:
 
 - **bronze**: raw Austin Animal Center intake and outcome records, loaded
-  as-is by `pipelines/bronze_ingest.py`. No cleaning; this is the immutable
-  source of truth.
+  as-is by `pipelines/bronze_ingest.py` from either local CSVs or parquet in
+  S3. No cleaning; this is the immutable source of truth.
 - **silver**: `silver_intakes` and `silver_outcomes`. Deduplicated, typed, and
   standardized: breed strings collapsed to canonical names (for cats and dogs),
   ages parsed from free text into `age_in_days`, life-stage `age_group` buckets
@@ -52,7 +56,10 @@ responsibility:
   repeat visitors and resolves a join fan-out that would otherwise let two
   same-day intakes both claim a single outcome.
 - **gold**: analytics-ready models the dashboard and any downstream consumer
-  read from. The Streamlit dashboard reads exclusively from this layer.
+  read from. The Streamlit dashboard reads exclusively from this layer. On the
+  `prod` target these materialize as external parquet in S3 instead of tables
+  in the local file, so the published artifacts are readable without the
+  warehouse that produced them.
 
 ```
 bronze_intakes / bronze_outcomes
@@ -99,17 +106,19 @@ dominant outcomes.
 shelterflow/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml            # build + test the full DAG on every push
+│       ├── ci.yml            # build + test the full DAG on every push
+│       └── prod.yml          # manual full-dataset build against S3
 ├── data/                     # DuckDB file + raw CSVs (gitignored, not committed)
 │   ├── bronze/               # aac_intakes.csv, aac_outcomes.csv go here
 │   └── shelterflow.duckdb
 ├── pipelines/
-│   └── bronze_ingest.py      # raw CSV → DuckDB bronze tables
+│   └── bronze_ingest.py      # raw CSV or S3 parquet → DuckDB bronze tables
 ├── scripts/
 │   └── build_fixture.py      # generates the sampled CI fixture
 ├── tests/
 │   └── fixtures/             # sampled CSVs used by CI (committed)
 ├── dbt_shelterflow/          # the dbt project
+│   ├── profiles.yml          # dev and prod targets
 │   └── models/
 │       ├── silver/
 │       ├── intermediate/
@@ -124,11 +133,12 @@ shelterflow/
 ```
 
 ## Setup
+Python 3.12 is required.
 
 1. Clone the repo.
 2. Create and activate a virtual environment:
    ```bash
-   python -m venv .venv
+   python3.12 -m venv .venv
    source .venv/bin/activate     # macOS / Linux
    .venv\Scripts\activate        # Windows
    ```
@@ -139,6 +149,18 @@ shelterflow/
 4. Download the dataset from the Kaggle link above and place
    `aac_intakes.csv` and `aac_outcomes.csv` in `data/bronze/`.
 
+Steps 1–4 are everything needed to run the project. The `prod` target
+additionally requires a configured AWS CLI and `SHELTERFLOW_BUCKET` set to an
+S3 bucket you own:
+
+```bash
+export SHELTERFLOW_BUCKET=your-bucket-name
+```
+
+Neither is needed for `dev`. The profile supplies an empty default for
+`SHELTERFLOW_BUCKET`, so the project parses and builds on a machine with no AWS
+configuration at all.
+
 ## Running the pipeline
 
 Load the raw CSVs into the DuckDB bronze tables:
@@ -147,10 +169,16 @@ Load the raw CSVs into the DuckDB bronze tables:
 python pipelines/bronze_ingest.py --source full
 ```
 
-`--source` is required and selects which CSVs to load: `full` reads the complete
-dataset from `data/bronze/`, and `fixture` reads the sampled fixture from
-`tests/fixtures/`. There is no default, so every invocation is explicit about
-which data it built.
+`--source` is required and selects which data to load:
+
+- `full` — the complete dataset, from local CSVs in `data/bronze/`
+- `fixture` — the sampled CI fixture, from local CSVs in `tests/fixtures/`
+- `s3` — the complete dataset, as parquet from S3 over DuckDB's httpfs
+
+There is no default, so every invocation is explicit about which data it built.
+All three write to the same bronze tables in the same database file, which means
+loading the fixture locally overwrites a full build; re-run with `--source full`
+to restore.
 
 Then build the dbt models (silver → intermediate → gold):
 
@@ -169,6 +197,25 @@ it resolves `ref()` automatically and handles the schema correctly:
 ```bash
 dbt show --inline "select * from {{ ref('gold_adoption_metrics') }} limit 20"
 ```
+
+### Building against S3
+
+The `prod` target reads bronze from S3 and writes the gold models back as
+parquet:
+
+```bash
+python pipelines/bronze_ingest.py --source s3
+cd dbt_shelterflow
+dbt build --target prod
+```
+
+Silver and intermediate stay in the local DuckDB file. They are intermediate
+state rather than artifacts, so pushing them to object storage would add round
+trips without giving any consumer something to read.
+
+Credentials are resolved by DuckDB's `credential_chain` provider, which reads
+the same `~/.aws/credentials` the AWS CLI uses. No credentials appear in the
+profile or anywhere else in the repository.
 
 ## Continuous integration
 
@@ -201,6 +248,26 @@ Regenerate the fixture (requires a full local build first):
 python scripts/build_fixture.py
 ```
 
+### Production builds
+
+A second workflow, `prod.yml`, runs the pipeline against the full dataset in
+S3: bronze parquet in, gold parquet back out. It is triggered manually rather
+than on a schedule, since the AAC extract is a static snapshot and a nightly
+run would republish byte-identical files.
+
+It authenticates to AWS through GitHub's OIDC provider, assuming an IAM role
+via `AssumeRoleWithWebIdentity` rather than reading stored access keys. No
+long-lived AWS credentials exist in the repository or its secrets; the token is
+issued per run and expires with the job. The role's trust policy scopes the
+`sub` claim to this repository, so a workflow in any other repository
+presenting a valid GitHub token still cannot assume it, and its S3 policy is
+limited to the single project bucket.
+
+The two workflows are deliberately separate. `ci.yml` runs on every push and
+pull request and never touches AWS, so build status keeps meaning "the code
+broke." `prod.yml` is the only place credentials, network access, and the full
+dataset are involved, and it runs when the published artifacts need refreshing.
+
 ## Dashboard
 
 Once the warehouse is built, launch the Streamlit dashboard from the repo root:
@@ -229,7 +296,9 @@ prompting you to build them first rather than raising an error.
 
 ## Testing
 
-Data quality is enforced in dbt rather than checked by hand:
+Data quality is enforced in dbt rather than checked by hand. There are 28 tests
+in total; 26 run in CI, the two exclusions being the full-dataset row-count
+bounds described below.
 
 - **Schema tests**: `not_null`, `unique`, `accepted_values`, and
   `unique_combination_of_columns` (via dbt_utils) guard grain and domain
